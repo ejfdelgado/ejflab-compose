@@ -1,0 +1,183 @@
+# docker compose -f docker-compose.gpu.yml --profile all down --remove-orphans
+# docker compose -f docker-compose.gpu.yml --profile all up -d
+# docker compose -f docker-compose.gpu.yml logs -f milvus
+# docker compose -f docker-compose.gpu.yml logs -f postgres
+# docker compose -f docker-compose.gpu.yml logs -f llm_processor
+# docker compose -f docker-compose.gpu.yml logs -f milvus_ix_processor
+
+# ssh root@localhost -p 2032
+
+networks:
+  network_ejflab:
+    name: network_ejflab
+    driver: bridge
+    #driver_opts:
+    #  com.docker.network.driver.mtu: 1500
+    #ipam:
+    #  config:
+    #    - subnet: 10.2.0.0/28
+    enable_ipv6: false
+
+volumes:
+  postgres:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: "${WORKSPACE}/postgres/data"
+  flowcharts:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: "${WORKSPACE}/flowcharts"
+  milvus_volume:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: "${WORKSPACE}/milvus/volume"
+  minio_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: "${WORKSPACE}/minio/data"
+  imageia:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: "${WORKSPACE}"
+  movies:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: "${WORKSPACE}/movies"
+
+services:
+  milvus:
+    profiles: [ "all"]
+    image: milvusdb/milvus:v2.4.5
+    container_name: milvus-standalone
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      - ETCD_USE_EMBED=true
+      - ETCD_DATA_DIR=/var/lib/milvus/etcd
+      - ETCD_CONFIG_PATH=/milvus/configs/embedEtcd.yaml
+      - COMMON_STORAGETYPE=local
+    volumes:
+      - "milvus_volume:/var/lib/milvus"
+      - "${WORKSPACE}/milvus/configs/embedEtcd.yaml:/milvus/configs/embedEtcd.yaml"
+      - "${WORKSPACE}/milvus/configs/user.yaml:/milvus/configs/user.yaml"
+    ports:
+      - 19530:19530
+      - 9091:9091
+      - 2379:2379
+    healthcheck:
+      test: curl -f http://localhost:9091/healthz
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 20
+    command: milvus run standalone 1> /dev/null
+    networks:
+      network_ejflab:
+        aliases:
+          - milvus
+
+  postgres:
+    profiles: [ "all" ]
+    image: ${IMAGE_POSTGRES}
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=ejflab
+    networks:
+      network_ejflab:
+        aliases:
+          - postgres
+
+  llm_processor:
+    profiles: [ "all" ]
+    image: ${IMAGE_LLM_PROCESSOR}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                  - gpu
+
+    environment:
+      PYTHONUNBUFFERED: 1
+      PROCESSOR_UID: "llm"
+      ROOM: ${ROOM}
+      CHANNEL: ${CHANNEL}
+      CHANNEL_SERVERS: "post"
+      SERVER_WS: ${SERVER_WS}
+      SERVER_POST_URL: ${SERVER_POST_URL}
+      SERVER_PUB_SUB_URL: ${SERVER_PUB_SUB_URL}
+      PORT: "8092"
+      PYANNOTE_TOKEN: ${PYANNOTE_TOKEN}
+      MILVUS_URI: ${MILVUS_URI}
+      MODEL: "Meta-Llama-3-8B-Instruct.Q4_0.gguf"
+      #MODEL: "orca-mini-3b-gguf2-q4_0.gguf"
+      #MODEL: "all-MiniLM-L6-v2.gguf2.f16.gguf"
+    ports:
+      - "2032:22"
+      - "8092:8092"
+    volumes:
+      - "imageia:/tmp/imageia"
+    command: sh /tmp/imageia/processor-pyclient/run.sh llm.py cpu
+    networks:
+      network_ejflab:
+        aliases:
+          - llm_processor
+
+  milvus_ix_processor:
+    profiles: [ "all" ]
+    image: ${IMAGE_MILVUS_IX_PROCESSOR}
+    environment:
+      PYTHONUNBUFFERED: 1
+      PROCESSOR_UID: "milvusIx"
+      ROOM: ${ROOM}
+      CHANNEL: ${CHANNEL}
+      CHANNEL_SERVERS: "post"
+      SERVER_WS: ${SERVER_WS}
+      SERVER_POST_URL: ${SERVER_POST_URL}
+      SERVER_PUB_SUB_URL: ${SERVER_PUB_SUB_URL}
+      PORT: "8091"
+      PYANNOTE_TOKEN: ${PYANNOTE_TOKEN}
+      MILVUS_URI: ${MILVUS_URI}
+      MILVUS_PROXY: 0
+      TF_CPP_MAX_VLOG_LEVEL: "0"
+      LD_LIBRARY_PATH: "/usr/local/lib/python3.8/dist-packages/nvidia/cuda_runtime/lib/:/usr/local/cuda/lib64/:/usr/lib/x86_64-linux-gnu/:/usr/local/lib/python3.8/dist-packages/tensorrt/"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                  - gpu
+    ports:
+      - "2031:22"
+      - "8091:8091"
+    volumes:
+      - "imageia:/tmp/imageia"
+    networks:
+      network_ejflab:
+        aliases:
+          - milvus_ix_processor
+    depends_on:
+      milvus:
+        condition: service_healthy
+    command: sh /tmp/imageia/processor-pyclient/run.sh milvus_index_processor.py cpu
