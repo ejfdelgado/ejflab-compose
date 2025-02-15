@@ -1,5 +1,7 @@
 # docker compose -f docker-compose.gpu.yml --profile all down --remove-orphans
 # docker compose -f docker-compose.gpu.yml --profile all up -d
+# docker compose -f docker-compose.gpu.yml --profile all_milvus up -d
+# docker compose -f docker-compose.gpu.yml --profile llm_processor up -d
 # docker compose -f docker-compose.gpu.yml logs -f milvus
 # docker compose -f docker-compose.gpu.yml logs -f postgres
 # docker compose -f docker-compose.gpu.yml logs -f llm_processor
@@ -58,7 +60,7 @@ volumes:
 
 services:
   milvus:
-    profiles: [ "all"]
+    profiles: ["all", "all_milvus"]
     image: milvusdb/milvus:v2.4.5
     container_name: milvus-standalone
     security_opt:
@@ -105,7 +107,7 @@ services:
           - postgres
 
   llm_processor:
-    profiles: [ "all" ]
+    profiles: [ "all", "llm_processor", "all_milvus" ]
     image: ${IMAGE_LLM_PROCESSOR}
     deploy:
       resources:
@@ -180,4 +182,4 @@ services:
     depends_on:
       milvus:
         condition: service_healthy
-    command: sh /tmp/imageia/processor-pyclient/run.sh milvus_index_processor.py cpu
+    command: sh /tmp/imageia/processor-pyclient/run.sh milvus_index_processor.py gpu
