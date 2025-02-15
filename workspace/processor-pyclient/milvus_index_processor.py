@@ -10,12 +10,13 @@ from FlagEmbedding import FlagModel
 from pymilvus.model.hybrid import BGEM3EmbeddingFunction
 from pymilvus.model.reranker import BGERerankFunction
 from pymilvus import (
-    model, AnnSearchRequest, RRFRanker, Collection
+    model, AnnSearchRequest, RRFRanker, Collection, utility, connections
 )
 from base_procesor import register_intent_found
 import gc
 import torch
 import numpy as np
+import uuid
 
 #gc.collect()
 #torch.cuda.empty_cache()
@@ -68,7 +69,7 @@ class MilvusIndexProcessor(SUPER_CLASS):
 
         self.use_database(database, False)
         # Maybe the next line us useless...
-        await self.wait_loaded(collection)
+        #await self.wait_loaded(collection)
 
         only_intexed_text = []
         for item in knowledge:
@@ -79,6 +80,7 @@ class MilvusIndexProcessor(SUPER_CLASS):
 
         for i in range(len(knowledge)):
             item = knowledge[i]
+            item['id'] = f"{uuid.uuid4()}"
             item['sparse_vector'] = self.csr_to_dict(embbeds['sparse'][i])
             item['dense_vector'] = embbeds['dense'][i].tolist()
         # Insert all at once
@@ -127,7 +129,8 @@ class MilvusIndexProcessor(SUPER_CLASS):
                 anns_field="dense_vector" if use_dense else "sparse_vector",
                 search_params=search_params,
                 limit=top_k,
-                output_fields=output_fields
+                output_fields=output_fields,
+                consistency_level="Strong"
             )
             result_list = []
             for result in results:
@@ -172,7 +175,7 @@ class MilvusIndexProcessor(SUPER_CLASS):
         def simplify_element(input):
             return {
                 "id": input['id'],
-                "distance": input['id'],
+                "distance": input['distance'],
                 "document_id": input['entity']['document_id'],
                 "text_indexed": input['entity']['text_indexed'],
                 "text_answer": input['entity']['text_answer'],
@@ -183,6 +186,52 @@ class MilvusIndexProcessor(SUPER_CLASS):
             "rerank": simplify_element(most_relevant[0]),
         }
 
+    async def delete_qa(self, args, default_arguments):
+        named_inputs = args['namedInputs']
+        item = named_inputs['item']
+        database = named_inputs['database']
+        collection_name = named_inputs['collection']
+
+        milvus_client = MilvusHandler.get_client()
+        self.use_database(database, False)
+        expresion = f"id in [{item['id']}]"
+        milvus_client.delete(collection_name=collection_name, filter=expresion)
+
+        #connections.connect(alias=database, host="milvus", port="19530")
+        #collection = Collection(collection_name)
+        # Perform compaction
+        #collection.compact()
+
+        return {}
+    
+    async def update_qa(self, args, default_arguments):
+        named_inputs = args['namedInputs']
+        item = named_inputs['item']
+        database = named_inputs['database']
+        collection = named_inputs['collection']
+
+        milvus_client = MilvusHandler.get_client()
+        self.use_database(database, False)
+
+        embbeds = bge_m3_ef.encode_queries([item['text_indexed']])
+        item['sparse_vector'] = self.csr_to_dict(embbeds['sparse'][0])
+        item['dense_vector'] = embbeds['dense'][0].tolist()
+
+        print(f"Upsert into {database} and {collection}")
+
+        milvus_client.upsert(
+            collection_name=collection,
+            data=[{
+                #"id": np.int64(int(item['id'])),
+                "id": item['id'],
+                "document_id": item['document_id'],
+                "text_indexed": item['text_indexed'],
+                "text_answer": item['text_answer'],
+                "sparse_vector": item['sparse_vector'],
+                "dense_vector": item['dense_vector']
+            }]
+        )
+        return {}
     
     async def process(self, args, default_arguments):
         method = args['method']
@@ -190,6 +239,10 @@ class MilvusIndexProcessor(SUPER_CLASS):
             return await self.index_qa(args, default_arguments)
         elif method == "searchqa":
             return await self.search_qa(args, default_arguments)
+        elif method == "deleteqa":
+            return await self.delete_qa(args, default_arguments)
+        elif method == "updateqa":
+            return await self.update_qa(args, default_arguments)
 
         return {}
 
