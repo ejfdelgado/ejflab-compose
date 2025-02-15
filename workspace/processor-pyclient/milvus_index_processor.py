@@ -73,6 +73,51 @@ class MilvusIndexProcessor(SUPER_CLASS):
         query_embeddings = bge_m3_ef.encode_queries(senteces_list)
         return query_embeddings["dense"]
 
+    async def index_qa(self, args, default_arguments):
+        named_inputs = args['namedInputs']
+        knowledge = named_inputs['knowledge']
+        database = named_inputs['database']
+        collection = named_inputs['collection']
+
+        self.use_database(database, False)
+        # Maybe the next line us useless...
+        await self.wait_loaded(collection)
+
+        only_intexed_text = []
+        for item in knowledge:
+            only_intexed_text.append(item['text_indexed'])
+
+        # Compute all embbeds at once
+        embbeds = bge_m3_ef.encode_queries(only_intexed_text)
+
+        for i in range(len(knowledge)):
+            item = knowledge[i]
+            item['sparse_vector'] = embbeds['sparse'][i]
+            item['dense_vector'] = self.toDtypeFloat32(embbeds['dense'][i])
+        # Insert all at once
+        self.insert(knowledge, collection)
+
+        return {
+            'indexed': len(knowledge)
+        }
+
+    async def search_qa(self, args, default_arguments):
+        named_inputs = args['namedInputs']
+        query = named_inputs['query']
+        database = named_inputs['database']
+        collection = named_inputs['collection']
+        k = 1
+        output_fields = ['id', 'document_id', 'text_indexed', 'text_answer']
+        query_field_name = 'text_indexed'
+        return await self.general_search(
+            database,
+            collection,
+            query,
+            k,
+            output_fields,
+            query_field_name
+        )
+
     async def index_faqs(self, args, default_arguments):
         data = args['data']
         db_name = data['db']
@@ -307,7 +352,7 @@ class MilvusIndexProcessor(SUPER_CLASS):
         return {
             'distance': distance
         }
-        
+    
     async def process(self, args, default_arguments):
         method = args['method']
         if method == "indexintent":
@@ -320,6 +365,10 @@ class MilvusIndexProcessor(SUPER_CLASS):
             return await self.search_faq(args, default_arguments)
         elif method == "compare":
             return await self.compare(args, default_arguments)
+        elif method == "indexqa":
+            return await self.index_qa(args, default_arguments)
+        elif method == "searchqa":
+            return await self.search_qa(args, default_arguments)
 
         return {}
 

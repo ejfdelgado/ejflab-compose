@@ -145,7 +145,7 @@ services:
           - llm_processor
 
   milvus_ix_processor:
-    profiles: [ "all" ]
+    profiles: [ "all", "all_milvus" ]
     image: ${IMAGE_MILVUS_IX_PROCESSOR}
     environment:
       PYTHONUNBUFFERED: 1
