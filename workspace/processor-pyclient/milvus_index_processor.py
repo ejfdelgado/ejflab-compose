@@ -174,7 +174,6 @@ class MilvusIndexProcessor(SUPER_CLASS):
                 "id": input['id'],
                 "distance": input['id'],
                 "document_id": input['entity']['document_id'],
-                "document_id": input['entity']['document_id'],
                 "text_indexed": input['entity']['text_indexed'],
                 "text_answer": input['entity']['text_answer'],
             }
