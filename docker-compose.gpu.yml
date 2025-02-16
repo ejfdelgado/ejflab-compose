@@ -1,13 +1,16 @@
 # docker compose -f docker-compose.gpu.yml --profile all down --remove-orphans
 # docker compose -f docker-compose.gpu.yml --profile all up -d
 # docker compose -f docker-compose.gpu.yml --profile all_milvus up -d
+# docker compose -f docker-compose.gpu.yml --profile all_postgres up -d
 # docker compose -f docker-compose.gpu.yml --profile llm_processor up -d
 # docker compose -f docker-compose.gpu.yml logs -f milvus
 # docker compose -f docker-compose.gpu.yml logs -f postgres
 # docker compose -f docker-compose.gpu.yml logs -f llm_processor
 # docker compose -f docker-compose.gpu.yml logs -f milvus_ix_processor
 
-# ssh root@localhost -p 2032
+# docker exec -it ca5f7fd95155 /bin/sh
+# apt install postgresql-16-pgvector
+# ssh root@localhost -p 2031
 
 networks:
   network_ejflab:
@@ -91,23 +94,23 @@ services:
           - milvus
 
   postgres:
-    profiles: [ "all" ]
+    profiles: [ "all", "all_postgres" ]
     image: ${IMAGE_POSTGRES}
     ports:
       - 5432:5432
     volumes:
       - postgres:/var/lib/postgresql/data
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=pass
-      - POSTGRES_DB=ejflab
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     networks:
       network_ejflab:
         aliases:
           - postgres
 
   llm_processor:
-    profiles: [ "all", "llm_processor", "all_milvus" ]
+    profiles: [ "all", "llm_processor", "all_milvus", "all_postgres" ]
     image: ${IMAGE_LLM_PROCESSOR}
     deploy:
       resources:
@@ -145,7 +148,7 @@ services:
           - llm_processor
 
   milvus_ix_processor:
-    profiles: [ "all", "all_milvus" ]
+    profiles: [ "all", "all_milvus", "all_postgres" ]
     image: ${IMAGE_MILVUS_IX_PROCESSOR}
     environment:
       PYTHONUNBUFFERED: 1
@@ -162,6 +165,11 @@ services:
       MILVUS_PROXY: 0
       TF_CPP_MAX_VLOG_LEVEL: "0"
       LD_LIBRARY_PATH: "/usr/local/lib/python3.8/dist-packages/nvidia/cuda_runtime/lib/:/usr/local/cuda/lib64/:/usr/lib/x86_64-linux-gnu/:/usr/local/lib/python3.8/dist-packages/tensorrt/"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
     deploy:
       resources:
         reservations:
@@ -179,7 +187,7 @@ services:
       network_ejflab:
         aliases:
           - milvus_ix_processor
-    depends_on:
-      milvus:
-        condition: service_healthy
+    #depends_on:
+    #  milvus:
+    #    condition: service_healthy
     command: sh /tmp/imageia/processor-pyclient/run.sh milvus_index_processor.py gpu
