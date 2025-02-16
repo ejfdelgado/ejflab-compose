@@ -6,7 +6,7 @@
 # docker compose -f docker-compose.gpu.yml logs -f milvus
 # docker compose -f docker-compose.gpu.yml logs -f postgres
 # docker compose -f docker-compose.gpu.yml logs -f llm_processor
-# docker compose -f docker-compose.gpu.yml logs -f milvus_ix_processor
+# docker compose -f docker-compose.gpu.yml logs -f baai_processor
 
 # docker exec -it ca5f7fd95155 /bin/sh
 # apt install postgresql-16-pgvector
@@ -147,22 +147,19 @@ services:
         aliases:
           - llm_processor
 
-  milvus_ix_processor:
-    profiles: [ "all", "all_milvus", "all_postgres" ]
-    image: ${IMAGE_MILVUS_IX_PROCESSOR}
+  baai_processor:
+    profiles: [ "all", "all_postgres" ]
+    image: ${IMAGE_BAAI_PROCESSOR}
     environment:
       PYTHONUNBUFFERED: 1
-      PROCESSOR_UID: "milvusIx"
+      PROCESSOR_UID: "baai"
       ROOM: ${ROOM}
       CHANNEL: ${CHANNEL}
       CHANNEL_SERVERS: "post"
       SERVER_WS: ${SERVER_WS}
       SERVER_POST_URL: ${SERVER_POST_URL}
       SERVER_PUB_SUB_URL: ${SERVER_PUB_SUB_URL}
-      PORT: "8091"
-      PYANNOTE_TOKEN: ${PYANNOTE_TOKEN}
-      MILVUS_URI: ${MILVUS_URI}
-      MILVUS_PROXY: 0
+      PORT: "8097"
       TF_CPP_MAX_VLOG_LEVEL: "0"
       LD_LIBRARY_PATH: "/usr/local/lib/python3.8/dist-packages/nvidia/cuda_runtime/lib/:/usr/local/cuda/lib64/:/usr/lib/x86_64-linux-gnu/:/usr/local/lib/python3.8/dist-packages/tensorrt/"
       POSTGRES_USER: ${POSTGRES_USER}
@@ -179,15 +176,15 @@ services:
               capabilities:
                   - gpu
     ports:
-      - "2031:22"
-      - "8091:8091"
+      - "2240:22"
+      - "8097:8097"
     volumes:
       - "imageia:/tmp/imageia"
     networks:
       network_ejflab:
         aliases:
-          - milvus_ix_processor
+          - baai_processor
     #depends_on:
     #  milvus:
     #    condition: service_healthy
-    command: sh /tmp/imageia/processor-pyclient/run.sh milvus_index_processor.py gpu
+    command: sh /tmp/imageia/processor-pyclient/run.sh baai_processor.py gpu
