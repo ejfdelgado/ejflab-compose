@@ -90,6 +90,15 @@ class BaaiProcessor(BaseProcessor):
         coo = sparse_csr.tocoo()
         return {int(i): float(v) for i, v in zip(coo.col, coo.data)}
 
+    def simplify_element(self, input):
+        return {
+            "id": input['id'],
+            "distance": 1-input['similarity'],
+            "document_id": input['document_id'],
+            "text_indexed": input['text_indexed'],
+            "text_answer": input['text_answer'],
+        }
+
     async def search(self, args, default_arguments):
         named_inputs = args['namedInputs']
         query = named_inputs['query']
@@ -121,6 +130,8 @@ class BaaiProcessor(BaseProcessor):
             
             alpha=0.5
             scores = []
+            score_map = {}
+            all_results = []
 
             for item in results:
                 id = item["id"]
@@ -136,26 +147,18 @@ class BaaiProcessor(BaseProcessor):
 
                 # Weighted fusion score
                 final_score = alpha * dense_score + (1 - alpha) * sparse_score
-                scores.append((id, final_score))
                 
-            scores.sort(key=lambda x: x[1], reverse=True)
-            idResult = scores[0][0]
-            most_relevant = list(filter(lambda item: item['id'] == idResult, results))
+                temp = self.simplify_element(item)
+                temp['score_reranked'] = final_score
+                all_results.append(temp)
+                
         finally:
             await conn.close()
 
-        def simplify_element(input):
-            return {
-                "id": input['id'],
-                "distance": input['similarity'],
-                "document_id": input['document_id'],
-                "text_indexed": input['text_indexed'],
-                "text_answer": input['text_answer'],
-            }
+        all_results.sort(key=lambda x: x['score_reranked'], reverse=True)
 
         return {
-            "no_rerank": simplify_element(results[0]),
-            "rerank": simplify_element(most_relevant[0]),
+            "rows": all_results
         }
 
     async def delete(self, args, default_arguments):
