@@ -85,12 +85,18 @@ class BaaiProcessor(BaseProcessor):
             'indexed': len(knowledge)
         }
     
+    def csr_to_dict(self, sparse_csr):
+        """Convert a scipy CSR sparse vector to a dictionary {index: value}."""
+        coo = sparse_csr.tocoo()
+        return {int(i): float(v) for i, v in zip(coo.col, coo.data)}
+
     async def search(self, args, default_arguments):
         named_inputs = args['namedInputs']
         query = named_inputs['query']
         k = named_inputs['kReRank']
 
         query_dense, query_sparse = self.generate_vectors(query)
+        sparse_vectors_dicts = self.csr_to_dict(query_sparse)
         conn = await self.get_pg_connection()
         reranked_results = []
         try:
@@ -98,6 +104,7 @@ class BaaiProcessor(BaseProcessor):
             results = await conn.fetch(
                 """
                 SELECT
+                    id,
                     document_id,
                     text_indexed,
                     text_answer,
@@ -112,17 +119,44 @@ class BaaiProcessor(BaseProcessor):
                 k
             )
             
-            for record in results:
+            alpha=0.5
+            scores = []
 
+            for item in results:
+                id = item["id"]
+                dense_score = 1 - item["similarity"]
+                sparse_vector = json.loads(item["sparse_vector"])
 
+                # Compute sparse similarity (dot product)
+                sparse_score = sum(sparse_vectors_dicts.get(k, 0) * sparse_vector.get(k, 0) for k in sparse_vectors_dicts.keys())
 
-                reranked_results.append({
-                    "text_indexed": record['text_indexed']
-                })
+                # Normalize scores
+                dense_score = 1 / (1 + dense_score)  # Convert L2 distance to similarity
+                sparse_score = sparse_score / (sum(sparse_vectors_dicts.values()) + 1e-8)  # Normalize
+
+                # Weighted fusion score
+                final_score = alpha * dense_score + (1 - alpha) * sparse_score
+                scores.append((id, final_score))
+                
+            scores.sort(key=lambda x: x[1], reverse=True)
+            idResult = scores[0][0]
+            most_relevant = list(filter(lambda item: item['id'] == idResult, results))
         finally:
             await conn.close()
 
-        return {"rerank": reranked_results}
+        def simplify_element(input):
+            return {
+                "id": input['id'],
+                "distance": input['similarity'],
+                "document_id": input['document_id'],
+                "text_indexed": input['text_indexed'],
+                "text_answer": input['text_answer'],
+            }
+
+        return {
+            "no_rerank": simplify_element(results[0]),
+            "rerank": simplify_element(most_relevant[0]),
+        }
 
     async def delete(self, args, default_arguments):
         named_inputs = args['namedInputs']
