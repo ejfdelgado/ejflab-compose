@@ -11,7 +11,7 @@ from transformers import AutoTokenizer, AutoModel
 import torch
 import traceback
 import json
-
+from scipy.sparse import coo_matrix
 
 model_name = "BAAI/bge-m3"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -79,12 +79,60 @@ class BaaiProcessor(BaseProcessor):
                            json.dumps(item['sparse_vector']),
                            )
         finally:
-            print("clossing connection")
             await conn.close()
 
         return {
             'indexed': len(knowledge)
         }
+    
+    async def search(self, args, default_arguments):
+        named_inputs = args['namedInputs']
+        query = named_inputs['query']
+        k = named_inputs['kReRank']
+
+        query_dense, query_sparse = self.generate_vectors(query)
+        conn = await self.get_pg_connection()
+        reranked_results = []
+        try:
+            query_dense_list = query_dense.tolist()
+            results = await conn.fetch(
+                """
+                SELECT
+                    document_id,
+                    text_indexed,
+                    text_answer,
+                    dense_vector,
+                    sparse_vector,
+                    1 - (dense_vector <=> $1) AS similarity
+                FROM public.knowledge
+                ORDER BY similarity DESC
+                LIMIT $2
+                """,
+                json.dumps(query_dense_list), 
+                k
+            )
+            
+            for record in results:
+
+
+
+                reranked_results.append({
+                    "text_indexed": record['text_indexed']
+                })
+        finally:
+            await conn.close()
+
+        return {"rerank": reranked_results}
+
+    async def delete(self, args, default_arguments):
+        named_inputs = args['namedInputs']
+        item = named_inputs['item']
+        return {}
+
+    async def update(self, args, default_arguments):
+        named_inputs = args['namedInputs']
+        item = named_inputs['item']
+        return {}
 
     async def get_pg_connection(self):
         conn_params = {
@@ -103,6 +151,12 @@ class BaaiProcessor(BaseProcessor):
         method = args['method']
         if method == "index":
             return await self.index(args, default_arguments)
+        elif method == "search":
+            return await self.search(args, default_arguments)
+        elif method == "delete":
+            return await self.delete(args, default_arguments)
+        elif method == "update":
+            return await self.update(args, default_arguments)
 
 
 async def main():
