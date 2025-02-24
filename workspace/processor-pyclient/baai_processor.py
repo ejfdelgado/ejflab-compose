@@ -103,6 +103,7 @@ class BaaiProcessor(BaseProcessor):
         named_inputs = args['namedInputs']
         query = named_inputs['query']
         k = named_inputs['kReRank']
+        max_distance = named_inputs['max_distance']
 
         query_dense, query_sparse = self.generate_vectors(query)
         sparse_vectors_dicts = self.csr_to_dict(query_sparse)
@@ -129,13 +130,14 @@ class BaaiProcessor(BaseProcessor):
             )
             
             alpha=0.5
-            scores = []
-            score_map = {}
             all_results = []
 
+            max_similarity = 1 - max_distance
             for item in results:
-                id = item["id"]
-                dense_score = 1 - item["similarity"]
+                similarity = item["similarity"]
+                if (similarity <= max_similarity):
+                    continue
+                dense_score = 1 - similarity
                 sparse_vector = json.loads(item["sparse_vector"])
 
                 # Compute sparse similarity (dot product)
@@ -164,11 +166,46 @@ class BaaiProcessor(BaseProcessor):
     async def delete(self, args, default_arguments):
         named_inputs = args['namedInputs']
         item = named_inputs['item']
+        conn = await self.get_pg_connection()
+        try:
+            await conn.execute("""
+                    DELETE FROM public.knowledge
+                    WHERE id=$1
+                    """,
+            int(item['id']),
+            )
+        finally:
+            await conn.close()
+
         return {}
 
     async def update(self, args, default_arguments):
         named_inputs = args['namedInputs']
         item = named_inputs['item']
+        dense_vector, sparse_vector = self.generate_vectors(item['text_indexed'])
+        item['sparse_vector'] = {
+            'indices': sparse_vector.row.tolist(),
+            'values': sparse_vector.data.tolist(),
+            'shape': sparse_vector.shape
+        }
+        item['dense_vector'] = dense_vector.tolist()
+
+        conn = await self.get_pg_connection()
+        try:
+            await conn.execute("""
+                    UPDATE public.knowledge
+                    SET text_indexed=$1, text_answer=$2, dense_vector=$3, sparse_vector=$4
+                    WHERE id=$5
+                    """, 
+            item['text_indexed'],
+            item['text_answer'],
+            json.dumps(item['dense_vector']),
+            json.dumps(item['sparse_vector']),
+            int(item['id']),
+            )
+        finally:
+            await conn.close()
+
         return {}
 
     async def get_pg_connection(self):

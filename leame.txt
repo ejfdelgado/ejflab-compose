@@ -1,5 +1,6 @@
-If a secret was added, erase it and apply:
-git commit --amend --all
+1. Quita el secreto del código.
+2. git commit --amend --all
+3. git push
 
 https://docs.github.com/es/code-security/secret-scanning/working-with-secret-scanning-and-push-protection/working-with-push-protection-from-the-command-line#resolving-a-blocked-push
 git rebase -i <COMMIT-ID>~1
