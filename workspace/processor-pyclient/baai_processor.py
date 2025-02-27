@@ -43,6 +43,7 @@ class BaaiProcessor(BaseProcessor):
         return dense_vector, sparse_vector
 
     async def index(self, args, default_arguments):
+        pig = args['pig']
         named_inputs = args['namedInputs']
         knowledge = named_inputs['knowledge']
 
@@ -68,15 +69,19 @@ class BaaiProcessor(BaseProcessor):
                                     text_indexed,
                                     text_answer,
                                     dense_vector,
-                                    sparse_vector
+                                    sparse_vector,
+                                    created,
+                                    updated
                                    )
-                                   VALUES($1,$2,$3,$4,$5)
+                                   VALUES($1,$2,$3,$4,$5,$6,$7)
                                    """, 
                            item['document_id'],
                            item['text_indexed'],
                            item['text_answer'],
                            json.dumps(item['dense_vector']),
                            json.dumps(item['sparse_vector']),
+                           pig['now'],
+                           pig['now'],
                            )
         finally:
             await conn.close()
@@ -97,6 +102,8 @@ class BaaiProcessor(BaseProcessor):
             "document_id": input['document_id'],
             "text_indexed": input['text_indexed'],
             "text_answer": input['text_answer'],
+            "created": input['created'],
+            "updated": input['updated'],
         }
 
     async def search(self, args, default_arguments):
@@ -120,6 +127,8 @@ class BaaiProcessor(BaseProcessor):
                     text_answer,
                     dense_vector,
                     sparse_vector,
+                    created,
+                    updated,
                     1 - (dense_vector <=> $1) AS similarity
                 FROM public.knowledge
                 ORDER BY similarity DESC
@@ -167,19 +176,22 @@ class BaaiProcessor(BaseProcessor):
         named_inputs = args['namedInputs']
         item = named_inputs['item']
         conn = await self.get_pg_connection()
+        deleted = False
         try:
-            await conn.execute("""
+            response = await conn.execute("""
                     DELETE FROM public.knowledge
                     WHERE id=$1
                     """,
             int(item['id']),
             )
+            deleted = True
         finally:
             await conn.close()
 
-        return {}
+        return {'deleted': deleted}
 
     async def update(self, args, default_arguments):
+        pig = args['pig']
         named_inputs = args['namedInputs']
         item = named_inputs['item']
         dense_vector, sparse_vector = self.generate_vectors(item['text_indexed'])
@@ -194,13 +206,14 @@ class BaaiProcessor(BaseProcessor):
         try:
             await conn.execute("""
                     UPDATE public.knowledge
-                    SET text_indexed=$1, text_answer=$2, dense_vector=$3, sparse_vector=$4
-                    WHERE id=$5
+                    SET text_indexed=$1, text_answer=$2, dense_vector=$3, sparse_vector=$4, updated=$5
+                    WHERE id=$6
                     """, 
             item['text_indexed'],
             item['text_answer'],
             json.dumps(item['dense_vector']),
             json.dumps(item['sparse_vector']),
+            pig['now'],
             int(item['id']),
             )
         finally:
