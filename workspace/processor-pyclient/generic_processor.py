@@ -12,10 +12,17 @@ class GenericProcessor(BaseProcessor):
     def get_default_arguments(self):
         return {}
 
-    async def process(self, args, default_arguments):
+    async def custom(self, args, default_arguments):
         named_inputs = args['namedInputs']
-        method = args['method']
         print(json.dumps(named_inputs))
+        return {
+            'status': 'ok'
+        }
+
+    async def process(self, args, default_arguments):
+        method = args['method']
+        if method == "custom":
+            return await self.custom(args, default_arguments)
         return {}
 
 

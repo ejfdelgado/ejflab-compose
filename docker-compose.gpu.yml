@@ -1,5 +1,4 @@
 # docker compose -f docker-compose.gpu.yml --profile all down --remove-orphans
-# docker compose -f docker-compose.gpu.yml --profile all up -d
 # docker compose -f docker-compose.gpu.yml --profile all_milvus up -d
 # docker compose -f docker-compose.gpu.yml --profile all_postgres up -d
 # docker compose -f docker-compose.gpu.yml --profile llm_processor up -d
@@ -7,10 +6,13 @@
 # docker compose -f docker-compose.gpu.yml logs -f postgres
 # docker compose -f docker-compose.gpu.yml logs -f llm_processor
 # docker compose -f docker-compose.gpu.yml logs -f baai_processor
+# docker compose -f docker-compose.gpu.yml logs -f chunker_processor
 
 # docker exec -it ca5f7fd95155 /bin/sh
 # apt install postgresql-16-pgvector
 # ssh root@localhost -p 2031
+# chunker
+# ssh root@localhost -p 2242
 
 networks:
   network_ejflab:
@@ -188,3 +190,33 @@ services:
     #  milvus:
     #    condition: service_healthy
     command: sh /tmp/imageia/processor-pyclient/run.sh baai_processor.py gpu
+
+  chunker_processor:
+    profiles: [ "all", "all_postgres" ]
+    image: ${IMAGE_CHUNKER_PROCESSOR}
+    environment:
+      PYTHONUNBUFFERED: 1
+      PROCESSOR_UID: "chunker"
+      ROOM: ${ROOM}
+      CHANNEL: ${CHANNEL}
+      CHANNEL_SERVERS: "post"
+      SERVER_WS: ${SERVER_WS}
+      SERVER_POST_URL: ${SERVER_POST_URL}
+      SERVER_PUB_SUB_URL: ${SERVER_PUB_SUB_URL}
+      PORT: "8098"
+      TF_CPP_MAX_VLOG_LEVEL: "0"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+    ports:
+      - "2242:22"
+      - "8098:8098"
+    volumes:
+      - "imageia:/tmp/imageia"
+    networks:
+      network_ejflab:
+        aliases:
+          - chunker_processor
+    command: sh /tmp/imageia/processor-pyclient/run.sh chunker_processor.py gpu
