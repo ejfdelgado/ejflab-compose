@@ -220,3 +220,38 @@ services:
         aliases:
           - chunker_processor
     command: sh /tmp/imageia/processor-pyclient/run.sh chunker_processor.py gpu
+
+  speech2text_processor:
+    profiles: [ "all", "all_postgres" ]
+    image: ${IMAGE_SPEECH_TO_TEXT_PROCESSOR}
+    environment:
+      PYTHONUNBUFFERED: 1
+      PROCESSOR_UID: "speechToText"
+      ROOM: ${ROOM}
+      CHANNEL: ${CHANNEL}
+      CHANNEL_SERVERS: ${CHANNEL_SERVERS}
+      SERVER_WS: ${SERVER_WS}
+      SERVER_POST_URL: ${SERVER_POST_URL}
+      SERVER_PUB_SUB_URL: ${SERVER_PUB_SUB_URL}
+      PORT: "8087"
+      TF_CPP_MAX_VLOG_LEVEL: "0"
+      MODEL: "base"
+      LD_LIBRARY_PATH: "/usr/local/lib/python3.8/dist-packages/nvidia/cuda_runtime/lib/:/usr/local/cuda/lib64/:/usr/lib/x86_64-linux-gnu/:/usr/local/lib/python3.8/dist-packages/tensorrt/"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                  - gpu
+    ports:
+      - "2227:22"
+      - "8087:8087"
+    volumes:
+      - "imageia:/tmp/imageia"
+    networks:
+      network_ejflab:
+        aliases:
+          - speech2text_processor
+    command: sh /tmp/imageia/processor-pyclient/run.sh speech2text_processor.py gpu
