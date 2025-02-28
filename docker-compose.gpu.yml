@@ -2,17 +2,21 @@
 # docker compose -f docker-compose.gpu.yml --profile all_milvus up -d
 # docker compose -f docker-compose.gpu.yml --profile all_postgres up -d
 # docker compose -f docker-compose.gpu.yml --profile llm_processor up -d
+# docker compose -f docker-compose.gpu.yml --profile text2speech_processor up -d
 # docker compose -f docker-compose.gpu.yml logs -f milvus
 # docker compose -f docker-compose.gpu.yml logs -f postgres
 # docker compose -f docker-compose.gpu.yml logs -f llm_processor
 # docker compose -f docker-compose.gpu.yml logs -f baai_processor
 # docker compose -f docker-compose.gpu.yml logs -f chunker_processor
+# docker compose -f docker-compose.gpu.yml logs -f text2speech_processor
 
 # docker exec -it ca5f7fd95155 /bin/sh
 # apt install postgresql-16-pgvector
 # ssh root@localhost -p 2031
 # chunker
 # ssh root@localhost -p 2242
+# speech to text
+# ssh root@localhost -p 2243
 
 networks:
   network_ejflab:
@@ -255,3 +259,37 @@ services:
         aliases:
           - speech2text_processor
     command: sh /tmp/imageia/processor-pyclient/run.sh speech2text_processor.py gpu
+
+  text2speech_processor:
+    profiles: [ "all", "all_postgres", "text2speech_processor" ]
+    image: ${IMAGE_TEXT_TO_SPEECH}
+    environment:
+      PYTHONUNBUFFERED: 1
+      PROCESSOR_UID: "TextTospeech"
+      ROOM: ${ROOM}
+      CHANNEL: ${CHANNEL}
+      CHANNEL_SERVERS: ${CHANNEL_SERVERS}
+      SERVER_WS: ${SERVER_WS}
+      SERVER_POST_URL: ${SERVER_POST_URL}
+      SERVER_PUB_SUB_URL: ${SERVER_PUB_SUB_URL}
+      PORT: "8099"
+      TF_CPP_MAX_VLOG_LEVEL: "0"
+      LD_LIBRARY_PATH: "/usr/local/lib/python3.8/dist-packages/nvidia/cuda_runtime/lib/:/usr/local/cuda/lib64/:/usr/lib/x86_64-linux-gnu/:/usr/local/lib/python3.8/dist-packages/tensorrt/"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                  - gpu
+    ports:
+      - "2243:22"
+      - "8099:8099"
+    volumes:
+      - "imageia:/tmp/imageia"
+    networks:
+      network_ejflab:
+        aliases:
+          - text2speech_processor
+    command: sh /tmp/imageia/processor-pyclient/run.sh text2speech_processor.py gpu
