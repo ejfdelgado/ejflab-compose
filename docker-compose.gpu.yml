@@ -262,7 +262,7 @@ services:
     command: sh /tmp/imageia/processor-pyclient/run.sh speech2text_processor.py gpu
 
   text2speech_processor:
-    profiles: [ "all", "all_postgres", "text2speech_processor" ]
+    profiles: [ "all", "text2speech_processor" ]
     image: ${IMAGE_TEXT_TO_SPEECH}
     environment:
       PYTHONUNBUFFERED: 1
