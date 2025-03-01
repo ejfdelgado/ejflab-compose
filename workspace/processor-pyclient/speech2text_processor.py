@@ -56,6 +56,7 @@ def join_words(segments):
 
 class Speech2TextProcessor(BaseProcessor):
     async def localConfigure(self):
+        # models are located in ~/.cache/whisper/
         # tiny, base, small, medium, large, large-v1, large-v2, large-v3
         self.model_path = "base"
         if ('MODEL' in os.environ):
