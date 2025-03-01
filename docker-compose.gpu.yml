@@ -1,6 +1,6 @@
 # docker compose -f docker-compose.gpu.yml --profile all down --remove-orphans
-# docker compose -f docker-compose.gpu.yml --profile all_milvus up -d
 # docker compose -f docker-compose.gpu.yml --profile all_postgres up -d
+# docker compose -f docker-compose.gpu.yml --profile all_postgres_audio up -d
 # docker compose -f docker-compose.gpu.yml --profile llm_processor up -d
 # docker compose -f docker-compose.gpu.yml --profile text2speech_processor up -d
 # docker compose -f docker-compose.gpu.yml logs -f milvus
@@ -100,7 +100,7 @@ services:
           - milvus
 
   postgres:
-    profiles: [ "all", "all_postgres" ]
+    profiles: [ "all", "all_postgres", "all_postgres_audio" ]
     image: ${IMAGE_POSTGRES}
     ports:
       - 5432:5432
@@ -116,7 +116,7 @@ services:
           - postgres
 
   llm_processor:
-    profiles: [ "all", "llm_processor", "all_milvus", "all_postgres" ]
+    profiles: [ "all", "llm_processor", "all_postgres", "all_postgres_audio" ]
     image: ${IMAGE_LLM_PROCESSOR}
     deploy:
       resources:
@@ -154,7 +154,7 @@ services:
           - llm_processor
 
   baai_processor:
-    profiles: [ "all", "all_postgres" ]
+    profiles: [ "all", "all_postgres", "all_postgres_audio" ]
     image: ${IMAGE_BAAI_PROCESSOR}
     environment:
       PYTHONUNBUFFERED: 1
@@ -196,7 +196,7 @@ services:
     command: sh /tmp/imageia/processor-pyclient/run.sh baai_processor.py gpu
 
   chunker_processor:
-    profiles: [ "all", "all_postgres" ]
+    profiles: [ "all", "all_postgres", "all_postgres_audio" ]
     image: ${IMAGE_CHUNKER_PROCESSOR}
     environment:
       PYTHONUNBUFFERED: 1
@@ -226,7 +226,7 @@ services:
     command: sh /tmp/imageia/processor-pyclient/run.sh chunker_processor.py gpu
 
   speech2text_processor:
-    profiles: [ "all", "all_postgres" ]
+    profiles: [ "all", "all_postgres_audio" ]
     image: ${IMAGE_SPEECH_TO_TEXT_PROCESSOR}
     environment:
       PYTHONUNBUFFERED: 1
