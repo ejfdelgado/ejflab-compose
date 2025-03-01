@@ -1,4 +1,5 @@
 # docker compose -f docker-compose.gpu.yml --profile all down --remove-orphans
+# docker compose -f docker-compose.gpu.yml --profile cloud up -d
 # docker compose -f docker-compose.gpu.yml --profile all_postgres up -d
 # docker compose -f docker-compose.gpu.yml --profile all_postgres_audio up -d
 # docker compose -f docker-compose.gpu.yml --profile llm_processor up -d
@@ -100,7 +101,7 @@ services:
           - milvus
 
   postgres:
-    profiles: [ "all", "all_postgres", "all_postgres_audio" ]
+    profiles: [ "all", "all_postgres", "all_postgres_audio", "cloud" ]
     image: ${IMAGE_POSTGRES}
     ports:
       - 5432:5432
@@ -154,7 +155,7 @@ services:
           - llm_processor
 
   baai_processor:
-    profiles: [ "all", "all_postgres", "all_postgres_audio" ]
+    profiles: [ "all", "all_postgres", "all_postgres_audio", "cloud" ]
     image: ${IMAGE_BAAI_PROCESSOR}
     environment:
       PYTHONUNBUFFERED: 1
@@ -196,7 +197,7 @@ services:
     command: sh /tmp/imageia/processor-pyclient/run.sh baai_processor.py gpu
 
   chunker_processor:
-    profiles: [ "all", "all_postgres", "all_postgres_audio" ]
+    profiles: [ "all", "all_postgres", "all_postgres_audio", "cloud" ]
     image: ${IMAGE_CHUNKER_PROCESSOR}
     environment:
       PYTHONUNBUFFERED: 1
@@ -274,15 +275,6 @@ services:
       SERVER_PUB_SUB_URL: ${SERVER_PUB_SUB_URL}
       PORT: "8099"
       TF_CPP_MAX_VLOG_LEVEL: "0"
-      LD_LIBRARY_PATH: "/usr/local/lib/python3.8/dist-packages/nvidia/cuda_runtime/lib/:/usr/local/cuda/lib64/:/usr/lib/x86_64-linux-gnu/:/usr/local/lib/python3.8/dist-packages/tensorrt/"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities:
-                  - gpu
     ports:
       - "2243:22"
       - "8099:8099"
@@ -292,4 +284,4 @@ services:
       network_ejflab:
         aliases:
           - text2speech_processor
-    command: sh /tmp/imageia/processor-pyclient/run.sh text2speech_processor.py gpu
+    command: sh /tmp/imageia/processor-pyclient/run.sh text2speech_processor.py cpu
