@@ -46,7 +46,8 @@ class BaaiProcessor(BaseProcessor):
         pig = args['pig']
         named_inputs = args['namedInputs']
         knowledge = named_inputs['knowledge']
-
+        schema = named_inputs['schema']
+        table = named_inputs['table']
 
         for i in range(len(knowledge)):
             item = knowledge[i]
@@ -62,8 +63,8 @@ class BaaiProcessor(BaseProcessor):
         try:
             for i in range(len(knowledge)):
                 item = knowledge[i]
-                await conn.execute("""
-                                   INSERT INTO public.knowledge
+                await conn.execute(f"""
+                                   INSERT INTO rac_{schema}.rac_{table}
                                    (
                                     document_id,
                                     text_indexed,
@@ -111,6 +112,8 @@ class BaaiProcessor(BaseProcessor):
         query = named_inputs['query']
         k = named_inputs['kReRank']
         max_distance = named_inputs['max_distance']
+        schema = named_inputs['schema']
+        table = named_inputs['table']
 
         query_dense, query_sparse = self.generate_vectors(query)
         sparse_vectors_dicts = self.csr_to_dict(query_sparse)
@@ -119,7 +122,7 @@ class BaaiProcessor(BaseProcessor):
         try:
             query_dense_list = query_dense.tolist()
             results = await conn.fetch(
-                """
+                f"""
                 SELECT
                     id,
                     document_id,
@@ -130,7 +133,7 @@ class BaaiProcessor(BaseProcessor):
                     created,
                     updated,
                     1 - (dense_vector <=> $1) AS similarity
-                FROM public.knowledge
+                FROM rac_{schema}.rac_{table}
                 ORDER BY similarity DESC
                 LIMIT $2
                 """,
@@ -175,11 +178,14 @@ class BaaiProcessor(BaseProcessor):
     async def delete(self, args, default_arguments):
         named_inputs = args['namedInputs']
         item = named_inputs['item']
+        schema = named_inputs['schema']
+        table = named_inputs['table']
+
         conn = await self.get_pg_connection()
         deleted = False
         try:
-            response = await conn.execute("""
-                    DELETE FROM public.knowledge
+            response = await conn.execute(f"""
+                    DELETE FROM rac_{schema}.rac_{table}
                     WHERE id=$1
                     """,
             int(item['id']),
@@ -194,6 +200,9 @@ class BaaiProcessor(BaseProcessor):
         pig = args['pig']
         named_inputs = args['namedInputs']
         item = named_inputs['item']
+        schema = named_inputs['schema']
+        table = named_inputs['table']
+
         dense_vector, sparse_vector = self.generate_vectors(item['text_indexed'])
         item['sparse_vector'] = {
             'indices': sparse_vector.row.tolist(),
@@ -204,8 +213,8 @@ class BaaiProcessor(BaseProcessor):
 
         conn = await self.get_pg_connection()
         try:
-            await conn.execute("""
-                    UPDATE public.knowledge
+            await conn.execute(f"""
+                    UPDATE rac_{schema}.rac_{table}
                     SET text_indexed=$1, text_answer=$2, dense_vector=$3, sparse_vector=$4, updated=$5
                     WHERE id=$6
                     """, 
