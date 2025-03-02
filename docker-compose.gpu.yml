@@ -8,6 +8,8 @@
 # docker compose -f docker-compose.gpu.yml --profile llm_processor up -d
 # docker compose -f docker-compose.gpu.yml --profile text2speech_processor up -d
 # docker compose -f docker-compose.gpu.yml --profile speech2text_processor up -d
+# docker compose -f docker-compose.gpu.yml --profile baai_processor up -d
+# docker compose -f docker-compose.gpu.yml --profile chunker_processor up -d
 # docker compose -f docker-compose.gpu.yml logs -f milvus
 # docker compose -f docker-compose.gpu.yml logs -f postgres
 # docker compose -f docker-compose.gpu.yml logs -f llm_processor
@@ -164,7 +166,7 @@ services:
           - llm_processor
 
   baai_processor:
-    profiles: [ "all", "all_postgres", "all_postgres_audio", "cloud", "ingest" ]
+    profiles: [ "all", "baai_processor", "all_postgres", "all_postgres_audio", "cloud", "ingest" ]
     image: ${IMAGE_BAAI_PROCESSOR}
     environment:
       PYTHONUNBUFFERED: 1
@@ -206,7 +208,7 @@ services:
     command: sh /tmp/imageia/processor-pyclient/run.sh baai_processor.py cpu
 
   chunker_processor:
-    profiles: [ "all", "all_postgres", "all_postgres_audio", "cloud", "ingest" ]
+    profiles: [ "all", "chunker_processor", "all_postgres", "all_postgres_audio", "cloud", "ingest" ]
     image: ${IMAGE_CHUNKER_PROCESSOR}
     environment:
       PYTHONUNBUFFERED: 1

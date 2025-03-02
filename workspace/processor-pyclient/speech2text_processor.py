@@ -198,7 +198,7 @@ class Speech2TextProcessor(BaseProcessor):
         # Recompute transcription
         transcription = join_words(segments)
         
-        print(json.dumps(transcription))
+        #print(json.dumps(transcription))
         
         # Last thing, erase file
         if not default_arguments['preserve_temp_files']:
