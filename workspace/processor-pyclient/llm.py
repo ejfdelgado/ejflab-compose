@@ -17,7 +17,7 @@ if os.environ['DEVICE'] == "cuda":
 print(f"device... {device}")
 
 # gpt4all-13b-snoozy-q4_0.gguf
-# Meta-Llama-3-8B-Instruct.Q4_0.gguf
+# Meta-Llama-3-8B-Instruct.Q4_0.gguf with 8192 tokens MAX
 # orca-mini-3b-gguf2-q4_0.gguf (es algo de salud)
 model = "Meta-Llama-3-8B-Instruct.Q4_0.gguf"
 if "MODEL" in os.environ:
@@ -32,6 +32,7 @@ print("Model loaded...")
 
 # /root/.cache/gpt4all/Meta-Llama-3-8B-Instruct.Q4_0.gguf
 # cp /usr/local/lib/python3.10/dist-packages/gpt4all/gpt4all.py /tmp/imageia/processor-pyclient/gpt4all.py
+# cp /tmp/imageia/processor-pyclient/gpt4all.modified.py /usr/local/lib/python3.10/dist-packages/gpt4all/gpt4all.py
 
 class LLMProcessor(BaseProcessor):
     async def localConfigure(self):

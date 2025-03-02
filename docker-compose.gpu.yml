@@ -2,6 +2,7 @@
 # docker compose -f docker-compose.gpu.yml --profile cloud up -d
 # docker compose -f docker-compose.gpu.yml --profile ingest up -d
 # docker compose -f docker-compose.gpu.yml --profile audio_config up -d
+# docker compose -f docker-compose.gpu.yml --profile postgres up -d
 # docker compose -f docker-compose.gpu.yml --profile all_postgres up -d
 # docker compose -f docker-compose.gpu.yml --profile all_postgres_audio up -d
 # docker compose -f docker-compose.gpu.yml --profile llm_processor up -d
@@ -24,6 +25,8 @@
 # ssh root@localhost -p 2227
 # text to speech
 # ssh root@localhost -p 2243
+# llm
+# ssh root@localhost -p 2032
 
 networks:
   network_ejflab:
@@ -107,7 +110,7 @@ services:
           - milvus
 
   postgres:
-    profiles: [ "all", "all_postgres", "all_postgres_audio", "cloud", "ingest", "audio_config" ]
+    profiles: [ "all", "postgres", "all_postgres", "all_postgres_audio", "cloud", "ingest", "audio_config" ]
     image: ${IMAGE_POSTGRES}
     ports:
       - 5432:5432
