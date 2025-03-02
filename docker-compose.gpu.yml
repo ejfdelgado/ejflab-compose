@@ -1,5 +1,7 @@
 # docker compose -f docker-compose.gpu.yml --profile all down --remove-orphans
 # docker compose -f docker-compose.gpu.yml --profile cloud up -d
+# docker compose -f docker-compose.gpu.yml --profile ingest up -d
+# docker compose -f docker-compose.gpu.yml --profile audio_config up -d
 # docker compose -f docker-compose.gpu.yml --profile all_postgres up -d
 # docker compose -f docker-compose.gpu.yml --profile all_postgres_audio up -d
 # docker compose -f docker-compose.gpu.yml --profile llm_processor up -d
@@ -105,7 +107,7 @@ services:
           - milvus
 
   postgres:
-    profiles: [ "all", "all_postgres", "all_postgres_audio", "cloud" ]
+    profiles: [ "all", "all_postgres", "all_postgres_audio", "cloud", "ingest", "audio_config" ]
     image: ${IMAGE_POSTGRES}
     ports:
       - 5432:5432
@@ -159,7 +161,7 @@ services:
           - llm_processor
 
   baai_processor:
-    profiles: [ "all", "all_postgres", "all_postgres_audio", "cloud" ]
+    profiles: [ "all", "all_postgres", "all_postgres_audio", "cloud", "ingest" ]
     image: ${IMAGE_BAAI_PROCESSOR}
     environment:
       PYTHONUNBUFFERED: 1
@@ -201,7 +203,7 @@ services:
     command: sh /tmp/imageia/processor-pyclient/run.sh baai_processor.py gpu
 
   chunker_processor:
-    profiles: [ "all", "all_postgres", "all_postgres_audio", "cloud" ]
+    profiles: [ "all", "all_postgres", "all_postgres_audio", "cloud", "ingest" ]
     image: ${IMAGE_CHUNKER_PROCESSOR}
     environment:
       PYTHONUNBUFFERED: 1
@@ -231,7 +233,7 @@ services:
     command: sh /tmp/imageia/processor-pyclient/run.sh chunker_processor.py gpu
 
   speech2text_processor:
-    profiles: [ "all", "all_postgres_audio", "speech2text_processor" ]
+    profiles: [ "all", "all_postgres_audio", "speech2text_processor", "audio_config" ]
     image: ${IMAGE_SPEECH_TO_TEXT_PROCESSOR}
     environment:
       PYTHONUNBUFFERED: 1
@@ -268,7 +270,7 @@ services:
     command: sh /tmp/imageia/processor-pyclient/run.sh speech2text_processor.py gpu
 
   text2speech_processor:
-    profiles: [ "all", "text2speech_processor" ]
+    profiles: [ "all", "text2speech_processor", "audio_config" ]
     image: ${IMAGE_TEXT_TO_SPEECH}
     environment:
       PYTHONUNBUFFERED: 1

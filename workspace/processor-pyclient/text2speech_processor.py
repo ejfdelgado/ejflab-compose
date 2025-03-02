@@ -8,6 +8,12 @@ import base64
 import uuid
 import wave
 
+# It defines which model to use given language
+LANGUAGE_MAP = {
+    'es': 'es_MX-claude-high.onnx',
+    'en': 'en_US-hfc_female-medium.onnx',
+}
+
 class Text2SpeechProcessor(BaseProcessor):
     async def localConfigure(self):
         pass
@@ -15,7 +21,7 @@ class Text2SpeechProcessor(BaseProcessor):
     def get_default_arguments(self):
         return {
             # en_US-hfc_female-medium.onnx es_MX-claude-high.onnx
-            'model': 'es_MX-claude-high.onnx',
+            'language': 'es',
             'voice_folder': '/tmp/imageia/processor-pyclient/voices/'
         }
     
@@ -40,9 +46,11 @@ class Text2SpeechProcessor(BaseProcessor):
             }
 
     async def convert(self, args, default_arguments):
+        global LANGUAGE_MAP
         named_inputs = args['namedInputs']
         text = named_inputs['text'].replace("'", "\'")
-        model = default_arguments['model']
+        language = default_arguments['language']
+        model = LANGUAGE_MAP[language]
         voice_folder = default_arguments['voice_folder']
 
         temp_file_name = f"./temp/{uuid.uuid4()}.wav"
