@@ -230,7 +230,7 @@ services:
       network_ejflab:
         aliases:
           - chunker_processor
-    command: sh /tmp/imageia/processor-pyclient/run.sh chunker_processor.py gpu
+    command: sh /tmp/imageia/processor-pyclient/run.sh chunker_processor.py cpu
 
   speech2text_processor:
     profiles: [ "all", "all_postgres_audio", "speech2text_processor", "audio_config" ]
