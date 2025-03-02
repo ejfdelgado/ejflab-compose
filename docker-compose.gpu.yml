@@ -200,7 +200,7 @@ services:
     #depends_on:
     #  milvus:
     #    condition: service_healthy
-    command: sh /tmp/imageia/processor-pyclient/run.sh baai_processor.py gpu
+    command: sh /tmp/imageia/processor-pyclient/run.sh baai_processor.py cpu
 
   chunker_processor:
     profiles: [ "all", "all_postgres", "all_postgres_audio", "cloud", "ingest" ]
