@@ -10,6 +10,7 @@
 # docker compose -f docker-compose.gpu.yml --profile speech2text_processor up -d
 # docker compose -f docker-compose.gpu.yml --profile baai_processor up -d
 # docker compose -f docker-compose.gpu.yml --profile chunker_processor up -d
+# docker compose -f docker-compose.gpu.yml --profile ocr_processor up -d
 # docker compose -f docker-compose.gpu.yml logs -f milvus
 # docker compose -f docker-compose.gpu.yml logs -f postgres
 # docker compose -f docker-compose.gpu.yml logs -f llm_processor
@@ -17,6 +18,9 @@
 # docker compose -f docker-compose.gpu.yml logs -f chunker_processor
 # docker compose -f docker-compose.gpu.yml logs -f text2speech_processor
 # docker compose -f docker-compose.gpu.yml logs -f speech2text_processor
+# docker compose -f docker-compose.gpu.yml logs -f ocr_processor
+
+#  --force-recreate
 
 # docker exec -it ca5f7fd95155 /bin/sh
 # apt install postgresql-16-pgvector
@@ -298,3 +302,28 @@ services:
         aliases:
           - text2speech_processor
     command: sh /tmp/imageia/processor-pyclient/run.sh text2speech_processor.py cpu
+
+  ocr_processor:
+    profiles: [ "ocr_processor" ]
+    image: ${IMAGE_OCR_PROCESSOR}
+    environment:
+      PYTHONUNBUFFERED: 1
+      PROCESSOR_UID: "ocr"
+      ROOM: ${ROOM}
+      CHANNEL: ${CHANNEL}
+      CHANNEL_SERVERS: ${CHANNEL_SERVERS}
+      SERVER_WS: ${SERVER_WS}
+      SERVER_POST_URL: ${SERVER_POST_URL}
+      SERVER_PUB_SUB_URL: ${SERVER_PUB_SUB_URL}
+      PORT: "8100"
+      TF_CPP_MAX_VLOG_LEVEL: "0"
+    ports:
+      - "2244:22"
+      - "8100:8100"
+    volumes:
+      - "imageia:/tmp/imageia"
+    networks:
+      network_ejflab:
+        aliases:
+          - ocr_processor
+    command: sh /tmp/imageia/processor-pyclient/run.sh ocr_processor.py cpu
