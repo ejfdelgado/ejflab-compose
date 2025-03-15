@@ -10,7 +10,7 @@
 # docker compose -f docker-compose.gpu.yml --profile speech2text_processor up -d
 # docker compose -f docker-compose.gpu.yml --profile baai_processor up -d
 # docker compose -f docker-compose.gpu.yml --profile chunker_processor up -d
-# docker compose -f docker-compose.gpu.yml --profile ocr_processor up -d
+# docker compose -f docker-compose.gpu.yml --profile ocr_processor up -d --force-recreate
 # docker compose -f docker-compose.gpu.yml logs -f milvus
 # docker compose -f docker-compose.gpu.yml logs -f postgres
 # docker compose -f docker-compose.gpu.yml logs -f llm_processor
